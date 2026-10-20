@@ -202,6 +202,65 @@ export interface IoCardStatus {
   outputs: OutputChannel[]
 }
 
+export interface AuracastStatus {
+  present: boolean
+  ready: boolean
+  stats_valid: boolean
+  fw_version: string
+  state: number
+  state_name: string
+  error: number
+  error_name: string
+  error_reg: number
+  error_reg_name: string
+  reset_reason: number
+  pipe_state: number
+  pipe_state_name: string
+  i2s_signal: boolean
+  bis_streaming: boolean
+  fifo_fill: number
+  drift_ppm: number
+  in_ppm: number
+  i2s_bits: string
+  underrun: number
+  overflow: number
+  lost: number
+  send_err: number
+  sent: number
+  active_id: string | null
+  uptime_ms: number
+  last_errno: number
+  age_ms: number
+}
+
+export interface AuracastConfig {
+  enabled: boolean
+  preset: number
+  channels: number
+  context: number
+  flags: number
+  tx_power: number
+  pd_us: number
+  fifo_target: number
+  broadcast_id: number
+  broadcast_id_random: boolean
+  name: string
+  code: string
+  /** Optional second (48 kHz High Quality) subgroup; 255 = none. */
+  hq_preset: number
+  hq_enabled: boolean
+  hq_channels: number
+  hq_context: number
+}
+
+export interface AuracastCard {
+  status: AuracastStatus
+  config: AuracastConfig
+  presets: { id: number; label: string }[]
+  hq_presets: { id: number; label: string }[]
+  channel_modes: { id: number; label: string }[]
+}
+
 export interface DeviceConfig {
   device_name: string
   default_mcast_addr: string

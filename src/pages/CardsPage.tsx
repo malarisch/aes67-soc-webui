@@ -15,6 +15,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client'
 import type {
+  AuracastCard,
   CardsOverview,
   InputChannel,
   IoCardStatus,
@@ -23,6 +24,7 @@ import type {
   OutputChannel,
 } from '../api/types'
 import { usePolling } from '../hooks/usePolling'
+import { AuracastPanel } from './cards/AuracastPanel'
 import {
   Badge,
   Button,
@@ -36,12 +38,12 @@ import {
   useToast,
 } from '../components/ui'
 
-type CardKind = 'mi' | 'lo' | 'io' | null
-type CardStatus = MiCardStatus | LoCardStatus | IoCardStatus | null
+type CardKind = 'mi' | 'lo' | 'io' | 'auracast' | null
+type CardStatus = MiCardStatus | LoCardStatus | IoCardStatus | AuracastCard | null
 type CardPageData = { overview: CardsOverview; kind: CardKind; status: CardStatus }
 
 function detectKind(typeId: number): CardKind {
-  return typeId === 1 ? 'mi' : typeId === 2 ? 'lo' : typeId === 3 ? 'io' : null
+  return typeId === 1 ? 'mi' : typeId === 2 ? 'lo' : typeId === 3 ? 'io' : typeId === 4 ? 'auracast' : null
 }
 
 function cloneWithInput(data: CardPageData, id: number, patch: Partial<InputChannel>): CardPageData {
@@ -193,6 +195,7 @@ export function CardsPage({
     if (slot?.initialized && kind === 'mi') status = await api.miCard()
     if (slot?.initialized && kind === 'lo') status = await api.loCard()
     if (slot?.initialized && kind === 'io') status = await api.ioCard()
+    if (slot?.initialized && kind === 'auracast') status = await api.auracastCard()
     return { overview, kind, status }
   }
   const polling = usePolling(loader, Math.max(pollInterval, 2000), active && !interacting)
@@ -273,14 +276,17 @@ export function CardsPage({
     if (!kind) return
     const approved = await confirm({
       title: `Reset ${slot?.type || 'I/O'} card?`,
-      message: 'The card will briefly go offline. Persisted gain, mute and phantom-power settings are reapplied after initialization.',
+      message: kind === 'auracast'
+        ? 'The S31 restarts and the broadcast is interrupted for a few seconds, then resumes with the stored configuration.'
+        : 'The card will briefly go offline. Persisted gain, mute and phantom-power settings are reapplied after initialization.',
       confirmLabel: 'Reset card',
       destructive: true,
     })
     if (!approved) return
     setBusy(true)
     try {
-      await api.resetCard(kind)
+      if (kind === 'auracast') await api.auracastReset()
+      else await api.resetCard(kind)
       toast('Card reset completed')
       window.setTimeout(() => void polling.refresh(), 500)
     } catch (reason) {
@@ -310,8 +316,10 @@ export function CardsPage({
           <h2>{slot?.present ? slot.type : 'No expansion card detected'}</h2>
           <p>
             {slot?.present
-              ? `Board 0x${(slot.board_id || 0).toString(16).toUpperCase().padStart(2, '0')} · hardware revision ${slot.hard_rev ?? '—'}`
-              : 'Connect an MI, LO or IO card and rescan the bus.'}
+              ? kind === 'auracast'
+                ? `ESP32-S31 firmware ${(status as AuracastCard | null)?.status.fw_version ?? `${slot.soft_id ?? 0}.${slot.board_id ?? 0}.${slot.hard_rev ?? 0}`} · I²C 0x3A`
+                : `Board 0x${(slot.board_id || 0).toString(16).toUpperCase().padStart(2, '0')} · hardware revision ${slot.hard_rev ?? '—'}`
+              : 'Connect an MI, LO, IO or Auracast card and rescan the bus.'}
           </p>
           <div className="hardware-badges">
             <Badge tone={slot?.initialized ? 'ok' : slot?.present ? 'danger' : 'neutral'} pulse={Boolean(slot?.initialized)}>
@@ -341,6 +349,12 @@ export function CardsPage({
           title="Card initialization failed"
           description="The card identifies correctly but did not finish its initialization sequence."
           action={<Button variant="danger" busy={busy} onClick={() => void reset()}><RotateCcw size={15} /> Reset hardware</Button>}
+        />
+      ) : kind === 'auracast' && status ? (
+        <AuracastPanel
+          data={status as AuracastCard}
+          onInteracting={setInteracting}
+          onChanged={(next) => polling.data && polling.setData({ ...polling.data, status: next })}
         />
       ) : (
         <>

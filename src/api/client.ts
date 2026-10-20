@@ -1,5 +1,7 @@
 import type {
   ApiResult,
+  AuracastCard,
+  AuracastConfig,
   CardsOverview,
   DeviceConfig,
   DiscoveredStream,
@@ -23,12 +25,15 @@ const API = '/api'
 export class ApiError extends Error {
   status: number
   code?: number
+  /** Full error body, e.g. the Auracast 422 reply with error_reg_name. */
+  detail?: Record<string, unknown>
 
-  constructor(message: string, status: number, code?: number) {
+  constructor(message: string, status: number, code?: number, detail?: Record<string, unknown>) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.detail = detail
   }
 }
 
@@ -48,7 +53,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const message = data?.error || data?.message || `Request failed (HTTP ${response.status})`
-    throw new ApiError(message, response.status, data?.code)
+    throw new ApiError(message, response.status, data?.code, data ?? undefined)
   }
 
   return (data ?? {}) as T
@@ -99,6 +104,12 @@ export const api = {
     request<IoCardStatus>(`/cards/io/outputs/${id}`, json('PATCH', value)),
   resetCard: (type: 'mi' | 'lo' | 'io') =>
     request<ApiResult>(`/cards/${type}/reset`, json('POST', {})),
+  auracastCard: () => request<AuracastCard>('/cards/auracast'),
+  updateAuracastCard: (value: Partial<AuracastConfig>) =>
+    request<AuracastCard>('/cards/auracast', json('PATCH', value)),
+  auracastStart: () => request<AuracastCard>('/cards/auracast/start', json('POST', {})),
+  auracastStop: () => request<AuracastCard>('/cards/auracast/stop', json('POST', {})),
+  auracastReset: () => request<AuracastCard>('/cards/auracast/reset', json('POST', {})),
 
   config: () => request<DeviceConfig>('/config'),
   updateConfig: (value: Partial<DeviceConfig>) =>

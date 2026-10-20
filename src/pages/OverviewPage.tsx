@@ -217,6 +217,7 @@ export function OverviewPage({
   const slot = cards.data?.slots?.[0]
   const cardCaption = useMemo(() => {
     if (!slot?.present) return 'No expansion card'
+    if (slot.type_id === 4) return `${slot.type} · firmware ${slot.soft_id ?? 0}.${slot.board_id ?? 0}.${slot.hard_rev ?? 0}`
     return `${slot.type} · revision ${slot.hard_rev ?? '—'}`
   }, [slot])
 
